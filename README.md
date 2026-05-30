@@ -48,7 +48,7 @@ A minimal GUI application for downloading YouTube videos and playlists for perso
 
 3. **Find your executable at:** `dist/YouTube Downloader.exe`
 
-The resulting .exe is **fully portable** - it includes yt-dlp and ffmpeg, so users don't need to install anything!
+The resulting .exe is **fully portable** - it includes yt-dlp and ffmpeg, so you won't need to install anything!
 
 ## Usage
 
@@ -87,7 +87,8 @@ YouTube frequently changes their platform, so yt-dlp needs regular updates:
 ## What's Bundled in the .exe
 
 The standalone executable includes:
-- **yt-dlp**: The core YouTube download engine
+- **yt-dlp**: The core YouTube download engine - Notice that since it's based on yt-dlp it can download from all the sites the project supports.
+  You can find the full list here: https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md
 - **ffmpeg**: For video/audio processing and format conversion
 - **ffprobe**: For media file analysis
 
