@@ -1,0 +1,25 @@
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Bundled binaries (too large for git)
+tools/ffmpeg.exe
+tools/ffprobe.exe
+tools/yt-dlp.exe
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
