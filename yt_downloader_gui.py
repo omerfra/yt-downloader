@@ -36,6 +36,38 @@ def get_user_tools_path():
     return tools_path
 
 
+def get_settings_path():
+    """Get the path to the settings file (persists user preferences between runs)."""
+    # Settings live next to the user tools folder so they survive app updates.
+    base = get_user_tools_path().parent
+    base.mkdir(parents=True, exist_ok=True)
+    return base / 'settings.json'
+
+
+def load_settings():
+    """Load saved user preferences. Returns an empty dict if none exist."""
+    try:
+        import json
+        settings_file = get_settings_path()
+        if settings_file.exists():
+            with open(settings_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {}
+
+
+def save_settings(settings):
+    """Save user preferences to disk."""
+    try:
+        import json
+        settings_file = get_settings_path()
+        with open(settings_file, 'w', encoding='utf-8') as f:
+            json.dump(settings, f, indent=2)
+    except Exception:
+        pass
+
+
 def get_tool_path(tool_name):
     """Get the full path to a bundled tool (yt-dlp, ffmpeg, ffprobe)."""
     # First check user's local tools folder (for updates)
@@ -116,17 +148,24 @@ class YouTubeDownloader:
         
         # Set icon if available
         self.setup_icon()
-        
-        # Default download path
-        self.default_path = str(Path.home() / "Downloads" / "YouTube")
-        
+
+        # Load saved user preferences (last folder, last download type, etc.)
+        self.settings = load_settings()
+
+        # Default download path (use last-used folder if we have one saved)
+        self.default_path = self.settings.get(
+            'last_folder', str(Path.home() / "Downloads" / "YouTube"))
+
         # Track download process
         self.current_process = None
         self.is_downloading = False
-        
+
         # Build the UI
         self.create_menu()
         self.create_widgets()
+
+        # Save preferences when the window is closed
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         
         # Check for yt-dlp on startup
         self.root.after(100, self.check_ytdlp_status)
@@ -312,6 +351,8 @@ I love piracy!!!
         self.url_entry = ttk.Entry(url_frame, width=60)
         self.url_entry.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         self.url_entry.bind('<Return>', lambda e: self.start_download())
+        # Make Ctrl+V work regardless of keyboard layout (Hebrew, Russian, etc.)
+        self.enable_layout_independent_paste(self.url_entry)
         
         paste_btn = ttk.Button(url_frame, text="Paste", width=8, command=self.paste_url)
         paste_btn.grid(row=0, column=1)
@@ -323,7 +364,7 @@ I love piracy!!!
         
         # Download type
         ttk.Label(options_frame, text="Type:").grid(row=0, column=0, sticky="w", pady=2)
-        self.download_type = tk.StringVar(value="video")
+        self.download_type = tk.StringVar(value=self.settings.get("download_type", "video"))
         type_frame = ttk.Frame(options_frame)
         type_frame.grid(row=0, column=1, sticky="w")
         ttk.Radiobutton(type_frame, text="Video", variable=self.download_type, 
@@ -335,7 +376,7 @@ I love piracy!!!
         
         # Quality selection
         ttk.Label(options_frame, text="Quality:").grid(row=1, column=0, sticky="w", pady=2)
-        self.quality = tk.StringVar(value="best")
+        self.quality = tk.StringVar(value=self.settings.get("quality", "best"))
         quality_frame = ttk.Frame(options_frame)
         quality_frame.grid(row=1, column=1, sticky="w")
         qualities = [("Best", "best"), ("1080p", "1080"), ("720p", "720"), ("480p", "480")]
@@ -345,7 +386,7 @@ I love piracy!!!
         
         # Audio format (for audio-only downloads)
         ttk.Label(options_frame, text="Audio Format:").grid(row=2, column=0, sticky="w", pady=2)
-        self.audio_format = tk.StringVar(value="mp3")
+        self.audio_format = tk.StringVar(value=self.settings.get("audio_format", "mp3"))
         audio_frame = ttk.Frame(options_frame)
         audio_frame.grid(row=2, column=1, sticky="w")
         for fmt in ["mp3", "m4a", "wav", "flac"]:
@@ -361,6 +402,7 @@ I love piracy!!!
         self.path_var = tk.StringVar(value=self.default_path)
         self.path_entry = ttk.Entry(path_frame, textvariable=self.path_var)
         self.path_entry.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+        self.enable_layout_independent_paste(self.path_entry)
         
         browse_btn = ttk.Button(path_frame, text="Browse", width=8, command=self.browse_folder)
         browse_btn.grid(row=0, column=1)
@@ -475,7 +517,55 @@ I love piracy!!!
             self.url_entry.insert(0, self.root.clipboard_get())
         except tk.TclError:
             messagebox.showwarning("Paste", "Clipboard is empty or doesn't contain text.")
+
+    def enable_layout_independent_paste(self, entry):
+        """Bind Ctrl+V so it works even when the keyboard layout isn't English.
+
+        Tkinter's built-in Ctrl+V relies on the 'v' keysym, which is never
+        produced when the active layout is non-Latin (Hebrew, Russian, etc.).
+        Instead we listen for any key pressed while Control is held and match on
+        the physical key. On Windows event.keycode is the layout-independent
+        virtual-key code (86 == 'V'); elsewhere we fall back to the keysym.
+        """
+        entry.bind('<Control-KeyPress>', self._on_ctrl_key, add='+')
+
+    def _on_ctrl_key(self, event):
+        """Handle Ctrl+key shortcuts in a keyboard-layout-independent way."""
+        # 86 is the Windows virtual-key code for 'V' (independent of layout).
+        is_paste_key = event.keycode == 86 or event.keysym.lower() == 'v'
+        if not is_paste_key:
+            return None
+
+        entry = event.widget
+        try:
+            clipboard = self.root.clipboard_get()
+        except tk.TclError:
+            return "break"
+
+        # Replace any selected text, otherwise insert at the cursor.
+        try:
+            if entry.selection_present():
+                entry.delete("sel.first", "sel.last")
+        except tk.TclError:
+            pass
+        entry.insert("insert", clipboard)
+        return "break"  # Prevent the default handler from pasting a second time.
     
+    def save_preferences(self):
+        """Persist the current UI choices so they're restored next launch."""
+        self.settings.update({
+            'last_folder': self.path_var.get(),
+            'download_type': self.download_type.get(),
+            'quality': self.quality.get(),
+            'audio_format': self.audio_format.get(),
+        })
+        save_settings(self.settings)
+
+    def on_close(self):
+        """Save preferences before the window closes."""
+        self.save_preferences()
+        self.root.destroy()
+
     def browse_folder(self):
         """Open folder browser dialog."""
         folder = filedialog.askdirectory(initialdir=self.path_var.get())
@@ -736,6 +826,9 @@ I love piracy!!!
                 "This doesn't look like a YouTube URL. Continue anyway?"):
                 return
         
+        # Remember the chosen folder/type/etc. for next time.
+        self.save_preferences()
+
         self.is_downloading = True
         self.download_btn.configure(state="disabled")
         self.cancel_btn.configure(state="normal")
