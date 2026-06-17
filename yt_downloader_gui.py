@@ -36,38 +36,6 @@ def get_user_tools_path():
     return tools_path
 
 
-def get_settings_path():
-    """Get the path to the settings file (persists user preferences between runs)."""
-    # Settings live next to the user tools folder so they survive app updates.
-    base = get_user_tools_path().parent
-    base.mkdir(parents=True, exist_ok=True)
-    return base / 'settings.json'
-
-
-def load_settings():
-    """Load saved user preferences. Returns an empty dict if none exist."""
-    try:
-        import json
-        settings_file = get_settings_path()
-        if settings_file.exists():
-            with open(settings_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-    except Exception:
-        pass
-    return {}
-
-
-def save_settings(settings):
-    """Save user preferences to disk."""
-    try:
-        import json
-        settings_file = get_settings_path()
-        with open(settings_file, 'w', encoding='utf-8') as f:
-            json.dump(settings, f, indent=2)
-    except Exception:
-        pass
-
-
 def get_tool_path(tool_name):
     """Get the full path to a bundled tool (yt-dlp, ffmpeg, ffprobe)."""
     # First check user's local tools folder (for updates)
@@ -148,24 +116,17 @@ class YouTubeDownloader:
         
         # Set icon if available
         self.setup_icon()
-
-        # Load saved user preferences (last folder, last download type, etc.)
-        self.settings = load_settings()
-
-        # Default download path (use last-used folder if we have one saved)
-        self.default_path = self.settings.get(
-            'last_folder', str(Path.home() / "Downloads" / "YouTube"))
-
+        
+        # Default download path
+        self.default_path = str(Path.home() / "Downloads" / "YouTube")
+        
         # Track download process
         self.current_process = None
         self.is_downloading = False
-
+        
         # Build the UI
         self.create_menu()
         self.create_widgets()
-
-        # Save preferences when the window is closed
-        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         
         # Check for yt-dlp on startup
         self.root.after(100, self.check_ytdlp_status)
@@ -207,10 +168,6 @@ class YouTubeDownloader:
            YOUTUBE DOWNLOADER - INSTRUCTIONS
 ═══════════════════════════════════════════════════
 
-Hey Yotam!
-I promised you the tool.
-Here it is, hope it works :)
-
 📥 HOW TO DOWNLOAD:
 ─────────────────────────────────────────────────
 1. Copy a YouTube URL from your browser
@@ -219,9 +176,34 @@ Here it is, hope it works :)
    • Video - Downloads video with audio
    • Audio Only - Extracts just the sound (MP3, etc.)
    • Playlist - Downloads all videos in a playlist
-4. Select quality (for video) or format (for audio)
+4. Select quality (for video) or format & bitrate (for audio)
 5. Choose where to save (default: Downloads/YouTube)
 6. Click "⬇ Download" and wait for completion
+
+Note: Options that don't apply to your selected type 
+will be greyed out automatically.
+
+═══════════════════════════════════════════════════
+
+🎵 AUDIO BITRATE EXPLAINED:
+─────────────────────────────────────────────────
+When downloading audio, you can choose a bitrate:
+
+• Best (auto) - RECOMMENDED
+  Keeps the original quality from YouTube without 
+  forcing a specific bitrate. No quality loss.
+
+• 320 kbps - Maximum fixed bitrate (largest files)
+• 256 kbps - High quality
+• 192 kbps - Good balance of quality and size
+• 128 kbps - Smaller files, lower quality
+
+💡 TIP: Most YouTube videos have audio at 128-256 kbps.
+Selecting 320 kbps won't improve quality if the 
+original is lower - it just makes bigger files.
+
+When in doubt, use "Best (auto)" - it's the safest 
+choice and preserves whatever quality YouTube has.
 
 ═══════════════════════════════════════════════════
 
@@ -307,12 +289,7 @@ Powered by:
 • ffmpeg - Audio/video processing
 
 For personal and educational use only.
-Please respect copyright laws.
-
-I love piracy!!!
-@omerfra
-
-"""
+Please respect copyright laws."""
         
         messagebox.showinfo("About", about_text)
     
@@ -351,8 +328,6 @@ I love piracy!!!
         self.url_entry = ttk.Entry(url_frame, width=60)
         self.url_entry.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         self.url_entry.bind('<Return>', lambda e: self.start_download())
-        # Make Ctrl+V work regardless of keyboard layout (Hebrew, Russian, etc.)
-        self.enable_layout_independent_paste(self.url_entry)
         
         paste_btn = ttk.Button(url_frame, text="Paste", width=8, command=self.paste_url)
         paste_btn.grid(row=0, column=1)
@@ -364,7 +339,8 @@ I love piracy!!!
         
         # Download type
         ttk.Label(options_frame, text="Type:").grid(row=0, column=0, sticky="w", pady=2)
-        self.download_type = tk.StringVar(value=self.settings.get("download_type", "video"))
+        self.download_type = tk.StringVar(value="video")
+        self.download_type.trace_add("write", self.on_download_type_changed)
         type_frame = ttk.Frame(options_frame)
         type_frame.grid(row=0, column=1, sticky="w")
         ttk.Radiobutton(type_frame, text="Video", variable=self.download_type, 
@@ -374,38 +350,60 @@ I love piracy!!!
         ttk.Radiobutton(type_frame, text="Playlist", variable=self.download_type, 
                         value="playlist").pack(side="left")
         
-        # Quality selection
-        ttk.Label(options_frame, text="Quality:").grid(row=1, column=0, sticky="w", pady=2)
-        self.quality = tk.StringVar(value=self.settings.get("quality", "best"))
-        quality_frame = ttk.Frame(options_frame)
-        quality_frame.grid(row=1, column=1, sticky="w")
+        # Quality selection (for video)
+        self.quality_label = ttk.Label(options_frame, text="Quality:")
+        self.quality_label.grid(row=1, column=0, sticky="w", pady=2)
+        self.quality = tk.StringVar(value="best")
+        self.quality_frame = ttk.Frame(options_frame)
+        self.quality_frame.grid(row=1, column=1, sticky="w")
+        self.quality_buttons = []
         qualities = [("Best", "best"), ("1080p", "1080"), ("720p", "720"), ("480p", "480")]
         for text, val in qualities:
-            ttk.Radiobutton(quality_frame, text=text, variable=self.quality, 
-                           value=val).pack(side="left", padx=(0, 10))
+            rb = ttk.Radiobutton(self.quality_frame, text=text, variable=self.quality, value=val)
+            rb.pack(side="left", padx=(0, 10))
+            self.quality_buttons.append(rb)
         
         # Audio format (for audio-only downloads)
-        ttk.Label(options_frame, text="Audio Format:").grid(row=2, column=0, sticky="w", pady=2)
-        self.audio_format = tk.StringVar(value=self.settings.get("audio_format", "mp3"))
-        audio_frame = ttk.Frame(options_frame)
-        audio_frame.grid(row=2, column=1, sticky="w")
+        self.audio_format_label = ttk.Label(options_frame, text="Audio Format:")
+        self.audio_format_label.grid(row=2, column=0, sticky="w", pady=2)
+        self.audio_format = tk.StringVar(value="mp3")
+        self.audio_format_frame = ttk.Frame(options_frame)
+        self.audio_format_frame.grid(row=2, column=1, sticky="w")
+        self.audio_format_buttons = []
         for fmt in ["mp3", "m4a", "wav", "flac"]:
-            ttk.Radiobutton(audio_frame, text=fmt.upper(), variable=self.audio_format, 
-                           value=fmt).pack(side="left", padx=(0, 10))
+            rb = ttk.Radiobutton(self.audio_format_frame, text=fmt.upper(), 
+                                 variable=self.audio_format, value=fmt)
+            rb.pack(side="left", padx=(0, 10))
+            self.audio_format_buttons.append(rb)
+        
+        # Audio bitrate (for audio-only downloads)
+        self.bitrate_label = ttk.Label(options_frame, text="Bitrate:")
+        self.bitrate_label.grid(row=3, column=0, sticky="w", pady=2)
+        self.audio_bitrate = tk.StringVar(value="0")
+        self.bitrate_frame = ttk.Frame(options_frame)
+        self.bitrate_frame.grid(row=3, column=1, sticky="w")
+        self.bitrate_buttons = []
+        bitrates = [("Best (auto)", "0"), ("320 kbps", "320"), ("256 kbps", "256"), ("192 kbps", "192"), ("128 kbps", "128")]
+        for text, val in bitrates:
+            rb = ttk.Radiobutton(self.bitrate_frame, text=text, variable=self.audio_bitrate, value=val)
+            rb.pack(side="left", padx=(0, 10))
+            self.bitrate_buttons.append(rb)
         
         # Output path
-        ttk.Label(options_frame, text="Save to:").grid(row=3, column=0, sticky="w", pady=2)
+        ttk.Label(options_frame, text="Save to:").grid(row=4, column=0, sticky="w", pady=2)
         path_frame = ttk.Frame(options_frame)
-        path_frame.grid(row=3, column=1, sticky="ew")
+        path_frame.grid(row=4, column=1, sticky="ew")
         path_frame.columnconfigure(0, weight=1)
         
         self.path_var = tk.StringVar(value=self.default_path)
         self.path_entry = ttk.Entry(path_frame, textvariable=self.path_var)
         self.path_entry.grid(row=0, column=0, sticky="ew", padx=(0, 5))
-        self.enable_layout_independent_paste(self.path_entry)
         
         browse_btn = ttk.Button(path_frame, text="Browse", width=8, command=self.browse_folder)
         browse_btn.grid(row=0, column=1)
+        
+        # Initialize option states (disable audio options by default)
+        self.on_download_type_changed()
         
         # --- Action Buttons ---
         button_frame = ttk.Frame(main_frame)
@@ -517,60 +515,54 @@ I love piracy!!!
             self.url_entry.insert(0, self.root.clipboard_get())
         except tk.TclError:
             messagebox.showwarning("Paste", "Clipboard is empty or doesn't contain text.")
-
-    def enable_layout_independent_paste(self, entry):
-        """Bind Ctrl+V so it works even when the keyboard layout isn't English.
-
-        Tkinter's built-in Ctrl+V relies on the 'v' keysym, which is never
-        produced when the active layout is non-Latin (Hebrew, Russian, etc.).
-        Instead we listen for any key pressed while Control is held and match on
-        the physical key. On Windows event.keycode is the layout-independent
-        virtual-key code (86 == 'V'); elsewhere we fall back to the keysym.
-        """
-        entry.bind('<Control-KeyPress>', self._on_ctrl_key, add='+')
-
-    def _on_ctrl_key(self, event):
-        """Handle Ctrl+key shortcuts in a keyboard-layout-independent way."""
-        # 86 is the Windows virtual-key code for 'V' (independent of layout).
-        is_paste_key = event.keycode == 86 or event.keysym.lower() == 'v'
-        if not is_paste_key:
-            return None
-
-        entry = event.widget
-        try:
-            clipboard = self.root.clipboard_get()
-        except tk.TclError:
-            return "break"
-
-        # Replace any selected text, otherwise insert at the cursor.
-        try:
-            if entry.selection_present():
-                entry.delete("sel.first", "sel.last")
-        except tk.TclError:
-            pass
-        entry.insert("insert", clipboard)
-        return "break"  # Prevent the default handler from pasting a second time.
     
-    def save_preferences(self):
-        """Persist the current UI choices so they're restored next launch."""
-        self.settings.update({
-            'last_folder': self.path_var.get(),
-            'download_type': self.download_type.get(),
-            'quality': self.quality.get(),
-            'audio_format': self.audio_format.get(),
-        })
-        save_settings(self.settings)
-
-    def on_close(self):
-        """Save preferences before the window closes."""
-        self.save_preferences()
-        self.root.destroy()
-
     def browse_folder(self):
         """Open folder browser dialog."""
         folder = filedialog.askdirectory(initialdir=self.path_var.get())
         if folder:
             self.path_var.set(folder)
+    
+    def on_download_type_changed(self, *args):
+        """Enable/disable options based on download type selection."""
+        download_type = self.download_type.get()
+        
+        if download_type == "audio":
+            # Audio only: enable audio options, disable video quality
+            self.set_options_state(self.quality_buttons, "disabled")
+            self.quality_label.configure(foreground="gray")
+            
+            self.set_options_state(self.audio_format_buttons, "normal")
+            self.audio_format_label.configure(foreground="")
+            
+            self.set_options_state(self.bitrate_buttons, "normal")
+            self.bitrate_label.configure(foreground="")
+        
+        elif download_type == "video":
+            # Video: enable video quality, disable audio options
+            self.set_options_state(self.quality_buttons, "normal")
+            self.quality_label.configure(foreground="")
+            
+            self.set_options_state(self.audio_format_buttons, "disabled")
+            self.audio_format_label.configure(foreground="gray")
+            
+            self.set_options_state(self.bitrate_buttons, "disabled")
+            self.bitrate_label.configure(foreground="gray")
+        
+        elif download_type == "playlist":
+            # Playlist: enable video quality (downloads as video), disable audio options
+            self.set_options_state(self.quality_buttons, "normal")
+            self.quality_label.configure(foreground="")
+            
+            self.set_options_state(self.audio_format_buttons, "disabled")
+            self.audio_format_label.configure(foreground="gray")
+            
+            self.set_options_state(self.bitrate_buttons, "disabled")
+            self.bitrate_label.configure(foreground="gray")
+    
+    def set_options_state(self, buttons, state):
+        """Set state for a list of buttons."""
+        for btn in buttons:
+            btn.configure(state=state)
     
     def open_download_folder(self):
         """Open the download folder in file explorer."""
@@ -787,12 +779,17 @@ I love piracy!!!
         if download_type == "audio":
             # Audio-only download
             audio_fmt = self.audio_format.get()
+            audio_bitrate = self.audio_bitrate.get()
             cmd.extend([
                 '-x',  # Extract audio
                 '--audio-format', audio_fmt,
-                '--audio-quality', '0',  # Best quality
-                '-o', os.path.join(output_path, '%(title)s.%(ext)s')
             ])
+            # 0 means best quality (let yt-dlp decide), otherwise use specific bitrate
+            if audio_bitrate == "0":
+                cmd.extend(['--audio-quality', '0'])  # Best available
+            else:
+                cmd.extend(['--audio-quality', f'{audio_bitrate}K'])
+            cmd.extend(['-o', os.path.join(output_path, '%(title)s.%(ext)s')])
         elif download_type == "playlist":
             # Playlist download
             cmd.append('--yes-playlist')
@@ -826,9 +823,6 @@ I love piracy!!!
                 "This doesn't look like a YouTube URL. Continue anyway?"):
                 return
         
-        # Remember the chosen folder/type/etc. for next time.
-        self.save_preferences()
-
         self.is_downloading = True
         self.download_btn.configure(state="disabled")
         self.cancel_btn.configure(state="normal")
