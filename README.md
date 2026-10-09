@@ -167,7 +167,7 @@ The standalone executable includes:
 - **ffprobe**: for media file analysis
 
 Total size: ~150MB (includes everything needed)
-
+<!--
 ## File Structure
 
 ```
@@ -190,7 +190,7 @@ yt_downloader/
     ├── zig/               # Portable C compiler for the plugin
     └── nsis/              # Portable installer builder
 ```
-
+-->
 ## Legal Notice
 
 This tool is for **personal and educational use only**.
