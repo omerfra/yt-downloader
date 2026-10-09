@@ -34,7 +34,7 @@ NSIS_VERSION = "3.13"
 NSIS_URL = f"https://downloads.sourceforge.net/project/nsis/NSIS%203/{NSIS_VERSION}/nsis-{NSIS_VERSION}.zip"
 NSIS_SHA256 = "ba63dffc4410ee89193e1cb5a41989991bd77c61068da17e3156d136b7b0b3d8"
 INSTALLER_NAME = "YouTube Downloader VST Setup.exe"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.2.0"
 
 
 def check_requirements():

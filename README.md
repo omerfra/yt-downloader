@@ -1,75 +1,62 @@
 # YouTube Downloader
 
-A minimal GUI application for downloading YouTube videos and playlists for personal and educational use.
+A minimal app for downloading YouTube videos, playlists and audio for personal and educational use.
+Use it on its own, or **inside your DAW as a VST2 plugin**.
+
+## Download
+
+Get the latest version from the [**Releases page**](https://github.com/omerfra/yt-downloader/releases/latest)
+(Windows 64-bit):
+
+| File | What it is |
+|------|------------|
+| `YouTube.Downloader.VST.Setup.exe` | **Installer**: adds the VST2 plugin to your DAW, plus an optional Start Menu shortcut for the standalone app. Recommended for most people. |
+| `YouTube.Downloader.exe` | **Portable app**: just run it, no installation. Doesn't include the DAW plugin. |
+
+Both are unsigned, so Windows SmartScreen may say "Windows protected your PC" the first time.
+Click **More info → Run anyway**.
 
 ## Features
 
 - 🎥 Download single videos or entire playlists
 - 🎵 Extract audio only (MP3, M4A, WAV, FLAC)
 - 📊 Quality selection (Best, 1080p, 720p, 480p)
+- 🎛️ **VST2 plugin**: the full downloader inside your DAW's plugin window
 - 📁 Custom download folder selection
-- 🔄 Built-in yt-dlp update functionality
+- 💾 Remembers your last folder and options between runs
+- ⌨️ Ctrl+V works in any keyboard layout (Hebrew, Russian, etc.)
+- 🔄 Built-in yt-dlp and ffmpeg updates
 - 📋 Real-time progress log
 - ⏹️ Cancel downloads in progress
-- 📦 **Fully portable** - all dependencies bundled (ffmpeg, yt-dlp)
+- 📦 **Fully portable**: all dependencies bundled (ffmpeg, yt-dlp)
 
-## Quick Start
+## Using It Inside Your DAW (VST2 plugin)
 
-### Option 1: Run from Source (For Development)
+### Install
 
-1. **Install Python 3.8+** from [python.org](https://python.org)
+1. Close your DAW.
+2. Run **`YouTube.Downloader.VST.Setup.exe`** and click **Next**.
+3. Choose your VST2 plugins folder. The installer suggests the folder where your other VST2
+   plugins already are (or where you installed it last time), so you can usually keep it.
+   The plugin goes into a `YouTube Downloader` folder inside it.
+4. Click **Install**, then open your DAW and **rescan plugins**.
+5. Add **YouTube Downloader** as an effect on any track and open its window. The full
+   downloader appears inside it.
 
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+If your DAW doesn't find the plugin, add the folder shown on the installer's last page to the
+DAW's VST2 plugin folders.
 
-3. **Run the application:**
-   ```bash
-   python yt_downloader_gui.py
-   ```
+### Repair, update or uninstall
 
-### Option 2: Build Standalone .exe (Windows) - RECOMMENDED
+- **Run the installer again** on a computer that already has the plugin to choose:
+  - **Repair**: reinstalls into the same folder (also how you update to a newer version).
+  - **Uninstall**: removes the plugin, its shortcuts and the Windows Apps entry.
+- Or uninstall **YouTube Downloader VST Plugin** from **Windows Settings → Apps**.
 
-1. **Install Python requirements:**
-   ```bash
-   pip install pyinstaller
-   ```
+Close your DAW first; the installer won't remove the plugin while a DAW has it loaded.
 
-2. **Run the build script:**
-   ```bash
-   python build_exe.py
-   ```
-   
-   The build script will automatically:
-   - Download the latest **yt-dlp.exe** (~10MB)
-   - Download and extract **ffmpeg** + **ffprobe** (~150MB)
-   - Bundle everything into a single portable executable
+### Good to know
 
-3. **Find your executable at:** `dist/YouTube Downloader.exe`
-
-The resulting .exe is **fully portable** - it includes yt-dlp and ffmpeg, so you won't need to install anything!
-
-### Option 3: Use It Inside Your DAW (VST2 plugin, Windows 64-bit)
-
-`python build_exe.py` also builds a VST2 plugin that shows the downloader inside your DAW, plus an
-installer for it: **`dist/YouTube Downloader VST Setup.exe`**. (The first time, it downloads the
-portable [Zig](https://ziglang.org) C compiler and [NSIS](https://nsis.sourceforge.io) installer
-builder into `tools/`; nothing is installed system-wide.)
-
-**Installing (for users):**
-1. Run `YouTube Downloader VST Setup.exe` (close your DAW first).
-2. Keep the suggested VST2 folder (or pick your DAW's), and click Install. It can also add a Start
-   Menu shortcut for using the downloader on its own.
-3. Rescan plugins in your DAW and add **YouTube Downloader** as an effect on any track.
-4. Open the plugin window - the full downloader appears inside it.
-
-To remove it, uninstall **YouTube Downloader VST Plugin** from Windows Settings → Apps.
-
-**Manual install:** copy **both** `YouTube Downloader.dll` and `YouTube Downloader.exe` from `dist/`
-into the same folder inside your VST2 plugins folder.
-
-Notes:
 - Audio passes through unchanged, so it's safe on any track.
 - Downloads keep running when you close the plugin window. Removing the plugin (or closing the
   DAW) closes the downloader.
@@ -77,22 +64,23 @@ Notes:
   the file into your arrangement.
 - Some DAWs grab keyboard shortcuts while a plugin window is focused. If typing in the URL box
   triggers DAW commands, use the **Paste** button instead.
-- The installer isn't code-signed, so Windows SmartScreen may warn on first run
-  ("More info" → "Run anyway").
-- Works in DAWs that still support VST2 (Reaper, Ableton Live, FL Studio, Bitwig, Studio One...).
+- Works in DAWs that still support VST2 (Ableton Live, FL Studio, Reaper, Bitwig, Studio One...).
   Cubase/Nuendo 14+ no longer load VST2 plugins.
 
 ## Usage
 
-1. **Paste a YouTube URL** - Use the Paste button or Ctrl+V
+1. **Paste a YouTube URL**: use the Paste button or Ctrl+V
 2. **Select download type:**
-   - Video: Downloads video with audio
-   - Audio Only: Extracts just the audio
-   - Playlist: Downloads all videos in a playlist
+   - Video: downloads video with audio
+   - Audio Only: extracts just the audio
+   - Playlist: downloads all videos in a playlist
 3. **Choose quality** (for video downloads)
-4. **Select audio format** (for audio-only downloads)
+4. **Select audio format and bitrate** (for audio-only downloads)
 5. **Choose download folder** or use the default
 6. **Click Download**
+
+Your folder and options are saved automatically and restored next time.
+For a full guide, click **❓ Help / Instructions** in the app.
 
 ## Updating yt-dlp
 
@@ -101,37 +89,91 @@ YouTube frequently changes their platform, so yt-dlp needs regular updates:
 - Click the **"🔄 Update yt-dlp"** button in the bottom toolbar
 - The app will download the latest version automatically
 
-## Troubleshooting
+Updates are saved to `%LOCALAPPDATA%\YouTubeDownloader\tools` and persist between runs.
 
-### "yt-dlp not found" (when running from source)
-- Run: `pip install yt-dlp`
-- Or use the build script to create a bundled .exe
+## Building From Source
+
+### Run from source (development)
+
+1. **Install Python 3.8+** from [python.org](https://python.org)
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. **Run the application:**
+   ```bash
+   python yt_downloader_gui.py
+   ```
+
+### Build the .exe, plugin and installer (Windows)
+
+1. **Install PyInstaller:**
+   ```bash
+   pip install pyinstaller
+   ```
+2. **Run the build script:**
+   ```bash
+   python build_exe.py
+   ```
+
+The first run downloads everything it needs into `tools/` (nothing is installed system-wide):
+**yt-dlp** (~10MB), **ffmpeg + ffprobe** (~150MB), the portable [Zig](https://ziglang.org)
+C compiler for the plugin (~100MB) and the [NSIS](https://nsis.sourceforge.io) installer builder
+(~2MB). Zig and NSIS downloads are checksum-verified.
+
+Output in `dist/`:
+- `YouTube Downloader.exe`: the portable app
+- `YouTube Downloader.dll`: the VST2 plugin (needs the .exe in the same folder)
+- `YouTube Downloader VST Setup.exe`: the installer containing both
+
+**Manual plugin install:** copy **both** `YouTube Downloader.dll` and `YouTube Downloader.exe`
+into the same folder inside your VST2 plugins folder.
+
+## Troubleshooting
 
 ### Download fails
 1. Update yt-dlp (YouTube changes frequently)
 2. Check if the video/playlist is available in your region
 3. Verify the URL is correct
 
+### "No audio" or "Format error"
+- Click **"🔄 Update ffmpeg"**
+
+### The plugin doesn't show up in my DAW
+- Rescan plugins after installing
+- Make sure the DAW scans the folder you installed to (shown on the installer's last page)
+- Make sure your DAW supports VST2 (see above) and is 64-bit
+
+### The plugin window says "Could not find YouTube Downloader.exe"
+- The `.dll` and `.exe` must be in the same folder. Run the installer and choose **Repair**.
+
+### The installer says the plugin is in use
+- Close your DAW (and the standalone app) and try again
+
+### "yt-dlp not found" (when running from source)
+- Run: `pip install yt-dlp`
+- Or use the build script to create a bundled .exe
+
 ### Build fails
-- Make sure you have a working internet connection (to download ffmpeg/yt-dlp)
+- Make sure you have a working internet connection (the first build downloads its tools)
 - Try running as administrator if there are permission issues
 
 ## What's Bundled in the .exe
 
 The standalone executable includes:
-- **yt-dlp**: The core YouTube download engine - Notice that since it's based on yt-dlp it can download from all the sites the project supports.
-  You can find the full list here: https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md
-- **ffmpeg**: For video/audio processing and format conversion
-- **ffprobe**: For media file analysis
+- **yt-dlp**: the core download engine. Since it's based on yt-dlp, it can download from all the
+  sites yt-dlp supports: https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md
+- **ffmpeg**: for video/audio processing and format conversion
+- **ffprobe**: for media file analysis
 
-Total size: ~80-100MB (includes everything needed)
+Total size: ~150MB (includes everything needed)
 
 ## File Structure
 
 ```
 yt_downloader/
 ├── yt_downloader_gui.py   # Main application
-├── build_exe.py           # Build script (downloads deps & creates .exe)
+├── build_exe.py           # Build script (downloads tools, builds .exe, plugin and installer)
 ├── requirements.txt       # Python dependencies (for dev only)
 ├── README.md              # This file
 ├── installer/
@@ -151,7 +193,7 @@ yt_downloader/
 
 ## Legal Notice
 
-This tool is for **personal and educational use only**. 
+This tool is for **personal and educational use only**.
 Please respect copyright laws and YouTube's Terms of Service.
 Only download content you have permission to download.
 
