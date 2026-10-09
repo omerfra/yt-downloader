@@ -212,6 +212,8 @@ class YouTubeDownloader:
     def show_instructions(self):
         """Show instructions dialog."""
         instructions = """
+Yotam - this is for you
+
 ═══════════════════════════════════════════════════
            YOUTUBE DOWNLOADER - INSTRUCTIONS
 ═══════════════════════════════════════════════════
