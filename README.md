@@ -52,14 +52,22 @@ The resulting .exe is **fully portable** - it includes yt-dlp and ffmpeg, so you
 
 ### Option 3: Use It Inside Your DAW (VST2 plugin, Windows 64-bit)
 
-`python build_exe.py` also builds **`dist/YouTube Downloader.dll`**, a VST2 plugin that shows the
-downloader inside your DAW. (It downloads the portable [Zig](https://ziglang.org) C compiler into
-`tools/zig/` the first time; nothing is installed system-wide.)
+`python build_exe.py` also builds a VST2 plugin that shows the downloader inside your DAW, plus an
+installer for it: **`dist/YouTube Downloader VST Setup.exe`**. (The first time, it downloads the
+portable [Zig](https://ziglang.org) C compiler and [NSIS](https://nsis.sourceforge.io) installer
+builder into `tools/`; nothing is installed system-wide.)
 
-1. Copy **both** `YouTube Downloader.dll` and `YouTube Downloader.exe` from `dist/` into the same
-   folder, inside your DAW's VST2 plugin folder (e.g. `C:\Program Files\VSTPlugins\`).
-2. Rescan plugins in your DAW and add **YouTube Downloader** as an effect on any track.
-3. Open the plugin window - the full downloader appears inside it.
+**Installing (for users):**
+1. Run `YouTube Downloader VST Setup.exe` (close your DAW first).
+2. Keep the suggested VST2 folder (or pick your DAW's), and click Install. It can also add a Start
+   Menu shortcut for using the downloader on its own.
+3. Rescan plugins in your DAW and add **YouTube Downloader** as an effect on any track.
+4. Open the plugin window - the full downloader appears inside it.
+
+To remove it, uninstall **YouTube Downloader VST Plugin** from Windows Settings → Apps.
+
+**Manual install:** copy **both** `YouTube Downloader.dll` and `YouTube Downloader.exe` from `dist/`
+into the same folder inside your VST2 plugins folder.
 
 Notes:
 - Audio passes through unchanged, so it's safe on any track.
@@ -69,6 +77,8 @@ Notes:
   the file into your arrangement.
 - Some DAWs grab keyboard shortcuts while a plugin window is focused. If typing in the URL box
   triggers DAW commands, use the **Paste** button instead.
+- The installer isn't code-signed, so Windows SmartScreen may warn on first run
+  ("More info" → "Run anyway").
 - Works in DAWs that still support VST2 (Reaper, Ableton Live, FL Studio, Bitwig, Studio One...).
   Cubase/Nuendo 14+ no longer load VST2 plugins.
 
@@ -124,6 +134,8 @@ yt_downloader/
 ├── build_exe.py           # Build script (downloads deps & creates .exe)
 ├── requirements.txt       # Python dependencies (for dev only)
 ├── README.md              # This file
+├── installer/
+│   └── installer.nsi      # NSIS script for the plugin installer
 ├── vst_plugin/            # VST2 plugin that embeds the app in a DAW
 │   ├── plugin.c           # Plugin source (pass-through effect + editor window)
 │   ├── plugin.def         # DLL exports
@@ -133,7 +145,8 @@ yt_downloader/
     ├── ffmpeg.exe
     ├── ffprobe.exe
     ├── yt-dlp.exe
-    └── zig/               # Portable C compiler for the plugin
+    ├── zig/               # Portable C compiler for the plugin
+    └── nsis/              # Portable installer builder
 ```
 
 ## Legal Notice

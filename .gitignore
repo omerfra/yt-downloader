@@ -8,6 +8,7 @@ tools/ffmpeg.exe
 tools/ffprobe.exe
 tools/yt-dlp.exe
 tools/zig/
+tools/nsis/
 
 # Python
 __pycache__/

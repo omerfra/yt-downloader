@@ -29,6 +29,13 @@ ZIG_VERSION = "0.17.0"
 ZIG_INDEX_URL = "https://ziglang.org/download/index.json"
 PLUGIN_NAME = "YouTube Downloader.dll"
 
+# Portable NSIS used to build the plugin installer (no install needed)
+NSIS_VERSION = "3.13"
+NSIS_URL = f"https://downloads.sourceforge.net/project/nsis/NSIS%203/{NSIS_VERSION}/nsis-{NSIS_VERSION}.zip"
+NSIS_SHA256 = "ba63dffc4410ee89193e1cb5a41989991bd77c61068da17e3156d136b7b0b3d8"
+INSTALLER_NAME = "YouTube Downloader VST Setup.exe"
+APP_VERSION = "1.0.0"
+
 
 def check_requirements():
     """Check if required packages are installed."""
@@ -194,6 +201,59 @@ def build_vst_plugin(tools_dir):
     return True
 
 
+def download_nsis(tools_dir):
+    """Download portable NSIS (installer builder). Returns path to makensis.exe or None."""
+    nsis_dir = Path(tools_dir) / "nsis"
+    makensis = nsis_dir / f"nsis-{NSIS_VERSION}" / "makensis.exe"
+    if makensis.exists():
+        print(f"✅ NSIS {NSIS_VERSION} already downloaded.")
+        return makensis
+
+    nsis_dir.mkdir(parents=True, exist_ok=True)
+    nsis_zip = nsis_dir / "nsis.zip"
+    if not download_file(NSIS_URL, nsis_zip, f"NSIS {NSIS_VERSION} installer builder (~2MB)"):
+        return None
+
+    with open(nsis_zip, 'rb') as f:
+        digest = hashlib.sha256(f.read()).hexdigest()
+    if digest != NSIS_SHA256:
+        print("  ❌ NSIS download checksum mismatch.")
+        nsis_zip.unlink()
+        return None
+
+    print("Extracting NSIS...")
+    with zipfile.ZipFile(nsis_zip, 'r') as zip_ref:
+        zip_ref.extractall(nsis_dir)
+    nsis_zip.unlink()
+    return makensis if makensis.exists() else None
+
+
+def build_installer(tools_dir):
+    """Package the plugin + exe into dist/YouTube Downloader VST Setup.exe."""
+    print("\n" + "="*50)
+    print("Building plugin installer...")
+    print("="*50 + "\n")
+
+    makensis = download_nsis(tools_dir)
+    if not makensis:
+        print("\n⚠️ Could not get NSIS. Skipping the installer.")
+        return False
+
+    result = subprocess.run([
+        str(makensis), '/V2',
+        f'/DDIST_DIR={Path("dist").resolve()}',
+        f'/DVERSION={APP_VERSION}',
+        os.path.join('installer', 'installer.nsi'),
+    ])
+
+    if result.returncode != 0:
+        print("\n❌ Installer build failed. Check the errors above.")
+        return False
+
+    print(f"✅ Installer built: dist/{INSTALLER_NAME}")
+    return True
+
+
 def get_ytdlp_path():
     """Find the yt-dlp executable path."""
     # Try to find yt-dlp in PATH or Scripts folder
@@ -352,9 +412,12 @@ def main():
     
     # Build
     if build_exe() and build_vst_plugin(tools_dir):
-        print("\n🎛️ To use it in a DAW, copy BOTH files from dist/ into your VST2 plugin folder:")
-        print(f"   - YouTube Downloader.exe")
-        print(f"   - {PLUGIN_NAME}")
+        if build_installer(tools_dir):
+            print(f"\n🎛️ Share dist/{INSTALLER_NAME} - it installs the plugin into the user's VST2 folder.")
+        else:
+            print("\n🎛️ To use it in a DAW, copy BOTH files from dist/ into your VST2 plugin folder:")
+            print(f"   - YouTube Downloader.exe")
+            print(f"   - {PLUGIN_NAME}")
 
     print("\n✅ Done!")
 
