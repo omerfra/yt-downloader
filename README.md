@@ -50,6 +50,28 @@ A minimal GUI application for downloading YouTube videos and playlists for perso
 
 The resulting .exe is **fully portable** - it includes yt-dlp and ffmpeg, so you won't need to install anything!
 
+### Option 3: Use It Inside Your DAW (VST2 plugin, Windows 64-bit)
+
+`python build_exe.py` also builds **`dist/YouTube Downloader.dll`**, a VST2 plugin that shows the
+downloader inside your DAW. (It downloads the portable [Zig](https://ziglang.org) C compiler into
+`tools/zig/` the first time; nothing is installed system-wide.)
+
+1. Copy **both** `YouTube Downloader.dll` and `YouTube Downloader.exe` from `dist/` into the same
+   folder, inside your DAW's VST2 plugin folder (e.g. `C:\Program Files\VSTPlugins\`).
+2. Rescan plugins in your DAW and add **YouTube Downloader** as an effect on any track.
+3. Open the plugin window - the full downloader appears inside it.
+
+Notes:
+- Audio passes through unchanged, so it's safe on any track.
+- Downloads keep running when you close the plugin window. Removing the plugin (or closing the
+  DAW) closes the downloader.
+- Tip: choose **Audio Only → WAV** and set "Save to" to your project's samples folder, then drag
+  the file into your arrangement.
+- Some DAWs grab keyboard shortcuts while a plugin window is focused. If typing in the URL box
+  triggers DAW commands, use the **Paste** button instead.
+- Works in DAWs that still support VST2 (Reaper, Ableton Live, FL Studio, Bitwig, Studio One...).
+  Cubase/Nuendo 14+ no longer load VST2 plugins.
+
 ## Usage
 
 1. **Paste a YouTube URL** - Use the Paste button or Ctrl+V
@@ -102,10 +124,16 @@ yt_downloader/
 ├── build_exe.py           # Build script (downloads deps & creates .exe)
 ├── requirements.txt       # Python dependencies (for dev only)
 ├── README.md              # This file
+├── vst_plugin/            # VST2 plugin that embeds the app in a DAW
+│   ├── plugin.c           # Plugin source (pass-through effect + editor window)
+│   ├── plugin.def         # DLL exports
+│   ├── vst2_abi.h         # Minimal VST2 interface declarations
+│   └── test_host.c        # Tiny test host for checking the plugin without a DAW
 └── tools/                 # Downloaded tools (created by build script)
     ├── ffmpeg.exe
     ├── ffprobe.exe
-    └── yt-dlp.exe
+    ├── yt-dlp.exe
+    └── zig/               # Portable C compiler for the plugin
 ```
 
 ## Legal Notice

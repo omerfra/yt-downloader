@@ -1,0 +1,4 @@
+LIBRARY "YouTube Downloader"
+EXPORTS
+    VSTPluginMain
+    main=VSTPluginMain
