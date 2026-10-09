@@ -185,6 +185,11 @@ def build_vst_plugin(tools_dir):
         print("\n❌ VST2 plugin build failed. Check the errors above.")
         return False
 
+    # The linker also emits an import library we don't need
+    import_lib = Path('dist') / 'plugin.lib'
+    if import_lib.exists():
+        import_lib.unlink()
+
     print(f"✅ VST2 plugin built: dist/{PLUGIN_NAME}")
     return True
 
