@@ -139,15 +139,19 @@ def get_latest_ffmpeg_version():
 class YouTubeDownloader:
     """Main application class for the YouTube Downloader GUI."""
     
-    def __init__(self, root):
+    def __init__(self, root, embed_handle=None):
         self.root = root
+        # Set when running inside the DAW plugin window (see vst_plugin/).
+        self.embed_handle = embed_handle
+        embedded = embed_handle is not None
         self.root.title("YouTube Downloader")
-        self.root.geometry("650x550")
-        self.root.resizable(True, True)
-        self.root.minsize(550, 450)
-        
-        # Set icon if available
-        self.setup_icon()
+        if not embedded:
+            self.root.geometry("650x550")
+            self.root.resizable(True, True)
+            self.root.minsize(550, 450)
+
+            # Set icon if available
+            self.setup_icon()
 
         # Load saved user preferences (last folder, last download type, etc.)
         self.settings = load_settings()
@@ -160,12 +164,17 @@ class YouTubeDownloader:
         self.current_process = None
         self.is_downloading = False
 
-        # Build the UI
-        self.create_menu()
+        # Build the UI (an embedded window can't have a menu bar; the Help
+        # button in the log section covers the same instructions)
+        if not embedded:
+            self.create_menu()
         self.create_widgets()
 
         # Save preferences when the window is closed
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        if embedded:
+            # The plugin closes us by destroying its window, not via WM_DELETE_WINDOW.
+            self.root.after(500, self.watch_plugin_window)
 
         # Check for yt-dlp on startup
         self.root.after(100, self.check_ytdlp_status)
@@ -607,6 +616,16 @@ Please respect copyright laws."""
         self.save_preferences()
         self.root.destroy()
 
+    def watch_plugin_window(self):
+        """Exit (saving preferences) once the DAW plugin's window is gone."""
+        import ctypes
+        if ctypes.windll.user32.IsWindow(int(self.embed_handle, 16)):
+            self.root.after(500, self.watch_plugin_window)
+            return
+        if self.current_process:
+            self.current_process.terminate()
+        self.on_close()
+
     def browse_folder(self):
         """Open folder browser dialog."""
         folder = filedialog.askdirectory(initialdir=self.path_var.get())
@@ -991,15 +1010,26 @@ Please respect copyright laws."""
             self.log("⚠️ Download cancelled by user.")
 
 
+def parse_embed_handle(argv):
+    """Return the window handle passed as '--embed <hwnd>', or None."""
+    if '--embed' in argv:
+        i = argv.index('--embed')
+        if i + 1 < len(argv):
+            return argv[i + 1]
+    return None
+
+
 def main():
     """Main entry point."""
-    root = tk.Tk()
-    
+    # When started by the DAW plugin, embed into the plugin's editor window.
+    embed_handle = parse_embed_handle(sys.argv[1:])
+    root = tk.Tk(use=embed_handle) if embed_handle else tk.Tk()
+
     # Configure styles for a cleaner look
     style = ttk.Style()
     style.theme_use('clam')  # Use 'clam' theme for better cross-platform look
-    
-    app = YouTubeDownloader(root)
+
+    app = YouTubeDownloader(root, embed_handle=embed_handle)
     root.mainloop()
 
 

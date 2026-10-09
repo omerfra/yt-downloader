@@ -1,6 +1,7 @@
 """
 Build script for YouTube Downloader
-Creates a standalone .exe with all dependencies bundled (including ffmpeg and yt-dlp).
+Creates a standalone .exe with all dependencies bundled (including ffmpeg and yt-dlp),
+plus a VST2 plugin (.dll) that shows the app inside a DAW.
 
 Requirements:
     pip install pyinstaller yt-dlp requests
@@ -14,12 +15,19 @@ import sys
 import os
 import shutil
 import zipfile
+import hashlib
+import json
 import urllib.request
 from pathlib import Path
 
 # URLs for bundled tools
 FFMPEG_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
 YTDLP_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+
+# Portable C compiler used to build the VST2 plugin (no install needed)
+ZIG_VERSION = "0.17.0"
+ZIG_INDEX_URL = "https://ziglang.org/download/index.json"
+PLUGIN_NAME = "YouTube Downloader.dll"
 
 
 def check_requirements():
@@ -112,6 +120,73 @@ def download_ytdlp(tools_dir):
         return True
     
     return download_file(YTDLP_URL, ytdlp_exe, "yt-dlp")
+
+
+def download_zig(tools_dir):
+    """Download the Zig toolchain (used as a C compiler). Returns path to zig.exe or None."""
+    zig_dir = Path(tools_dir) / "zig"
+    existing = list(zig_dir.glob(f"zig-*-{ZIG_VERSION}/zig.exe"))
+    if existing:
+        print(f"✅ Zig {ZIG_VERSION} already downloaded.")
+        return existing[0]
+
+    zig_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        req = urllib.request.Request(ZIG_INDEX_URL, headers={'User-Agent': 'YouTubeDownloader'})
+        with urllib.request.urlopen(req, timeout=30) as response:
+            entry = json.loads(response.read().decode())[ZIG_VERSION]["x86_64-windows"]
+    except Exception as e:
+        print(f"  ❌ Could not look up Zig {ZIG_VERSION}: {e}")
+        return None
+
+    zig_zip = zig_dir / "zig.zip"
+    if not download_file(entry["tarball"], zig_zip, f"Zig {ZIG_VERSION} compiler (~100MB)"):
+        return None
+
+    with open(zig_zip, 'rb') as f:
+        digest = hashlib.sha256(f.read()).hexdigest()
+    if digest != entry["shasum"]:
+        print("  ❌ Zig download checksum mismatch.")
+        zig_zip.unlink()
+        return None
+
+    print("Extracting Zig...")
+    with zipfile.ZipFile(zig_zip, 'r') as zip_ref:
+        zip_ref.extractall(zig_dir)
+    zig_zip.unlink()
+
+    found = list(zig_dir.glob(f"zig-*-{ZIG_VERSION}/zig.exe"))
+    return found[0] if found else None
+
+
+def build_vst_plugin(tools_dir):
+    """Compile the VST2 plugin into dist/ next to the .exe it launches."""
+    print("\n" + "="*50)
+    print("Building VST2 plugin...")
+    print("="*50 + "\n")
+
+    zig = download_zig(tools_dir)
+    if not zig:
+        print("\n⚠️ Could not get a C compiler. Skipping the VST2 plugin.")
+        return False
+
+    Path('dist').mkdir(exist_ok=True)
+    result = subprocess.run([
+        str(zig), 'cc',
+        '-target', 'x86_64-windows-gnu',
+        '-shared', '-O2', '-s',
+        '-o', os.path.join('dist', PLUGIN_NAME),
+        os.path.join('vst_plugin', 'plugin.c'),
+        os.path.join('vst_plugin', 'plugin.def'),
+        '-luser32', '-lgdi32',
+    ])
+
+    if result.returncode != 0:
+        print("\n❌ VST2 plugin build failed. Check the errors above.")
+        return False
+
+    print(f"✅ VST2 plugin built: dist/{PLUGIN_NAME}")
+    return True
 
 
 def get_ytdlp_path():
@@ -271,8 +346,11 @@ def main():
     create_spec_file(tools_dir)
     
     # Build
-    build_exe()
-    
+    if build_exe() and build_vst_plugin(tools_dir):
+        print("\n🎛️ To use it in a DAW, copy BOTH files from dist/ into your VST2 plugin folder:")
+        print(f"   - YouTube Downloader.exe")
+        print(f"   - {PLUGIN_NAME}")
+
     print("\n✅ Done!")
 
 
